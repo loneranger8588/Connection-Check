@@ -33,6 +33,11 @@ li{margin:.35rem 0}
 a{color:var(--acc)}
 .v{padding:9px 11px;border-radius:10px;margin:7px 0;border:1px solid currentColor;background:transparent}
 .v span{color:var(--tx)}
+details{margin-top:.5rem}
+summary{font-weight:600;color:var(--acc);cursor:pointer;padding:4px 0}
+details ol{margin:.4rem 0 .2rem;padding-left:1.2rem;color:var(--tx)}
+details li{margin:.3rem 0;font-size:.95rem}
+details .chrome{color:var(--mut);font-size:.88rem;margin-top:.4rem}
 </style>
 </head>
 <body>
@@ -53,6 +58,12 @@ a{color:var(--acc)}
   <input id="who" type="text" autocapitalize="off" autocorrect="off" placeholder="e.g. Office Wi-Fi / EE">
   <button id="go">Run checks</button>
   <div id="prog"></div>
+</div>
+
+<div class="card">
+  <h2>Quick browser check</h2>
+  <p>Tests cookies, storage, JavaScript, content blockers and tracking protection. No website needed, about 10 seconds.</p>
+  <button id="qgo">Run browser check</button>
 </div>
 
 <div id="out"></div>
@@ -120,6 +131,75 @@ function row(parent, label, status, detail){
 }
 function say(t){ prog.textContent = t; }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const CHROME_NOTE = 'Chrome on iPhone uses the same Apple engine as Safari, so iPhone-level settings and network problems affect Chrome too. Chrome\'s own clean-up: tap the three dots, Settings, Privacy and Security, Clear Browsing Data, tick Cookies and Site Data and Cached Images, then Clear.';
+const GUIDES = {
+  clock: ['Fix the phone clock', [
+    'Open Settings.', 'Tap General, then Date & Time.', 'Turn on Set Automatically.',
+    'If it was already on, turn it off, wait 5 seconds, turn it back on.',
+    'Check the time zone shows London (UK).', 'Run the check again.'], false],
+  cookies: ['Turn off Block All Cookies', [
+    'Open Settings, then Apps, then Safari.', 'Scroll down and tap Advanced.',
+    'Turn Block All Cookies off.', 'Back in Safari settings, under Privacy & Security, turn off Prevent Cross-Site Tracking (as a test).',
+    'Close Safari fully (swipe it away from the app switcher), reopen it, and try the site again.'], true],
+  storage: ['Fix blocked storage', [
+    'Make sure you are not in Private Browsing: in Safari tap the tabs icon, then the tab group name at the bottom, and choose the normal tab group (not Private).',
+    'Open Settings, then Apps, then Safari, then Advanced.', 'Turn off Block All Cookies.',
+    'Back in Safari settings tap Clear History and Website Data, then Clear History.',
+    'Check Settings, then General, then iPhone Storage is not completely full.',
+    'Reopen Safari and run the check again.'], true],
+  blockers: ['Switch off content blockers and filters', [
+    'Open Settings, then Apps, then Safari, then Extensions.', 'Turn off every extension and content blocker listed.',
+    'Delete or pause any ad blocker, VPN-style or "web protection" app on the phone, then restart the phone.',
+    'Open Settings, then General, then VPN & Device Management. If a profile or VPN is listed, tap it and note its name (remove it only if you know it is not needed for work).',
+    'Open Settings, then Wi-Fi, tap the (i) next to your network, and check Configure DNS says Automatic.',
+    'Test again on mobile data with Wi-Fi switched off. If it works on mobile data, the Wi-Fi router or broadband has an ad/web filter. Look in the router settings or broadband app for Web Protect, Shield, HomeSafe, parental controls or DNS filtering and turn it off for the test.'], true],
+  fingerprint: ['Turn off tracking and fingerprinting protection', [
+    'Open Settings, then Apps, then Safari, then Advanced.', 'Tap Advanced Tracking and Fingerprinting Protection.',
+    'Choose Off (or at least not All Browsing).', 'Back in Safari settings, turn off Prevent Cross-Site Tracking and, if on, Hide IP Address from Trackers.',
+    'Close Safari fully, reopen, and try the site again.'], true],
+  network: ['Rule out the network and iPhone network settings', [
+    'Turn Wi-Fi off, leave mobile data on, and run the check and the real site again. Note whether it behaves differently.',
+    'Settings, then Wi-Fi, tap the (i) next to your network: turn off Limit IP Address Tracking and Private Wi-Fi Address, and set Configure DNS to Automatic.',
+    'Settings, then Privacy & Security: make sure Lockdown Mode is off.',
+    'Settings, then General, then VPN & Device Management: note or remove any profile you do not recognise.',
+    'Restart the router, and check it for parental controls, web protection or IPv6 settings (try turning IPv6 off as a test).',
+    'Last resort: Settings, then General, then Transfer or Reset iPhone, then Reset, then Reset Network Settings (you will need to re-enter Wi-Fi passwords).'], false],
+  next: ['What to try next', [
+    'Run the check on mobile data (Wi-Fi off) as well as Wi-Fi.',
+    'Log into the portal on his phone using your account, and into his account on your phone. This shows whether it is the account or the device.',
+    'Try a Private Browsing tab, and try on a different device on the same Wi-Fi.',
+    'Clear just that site: Settings, Apps, Safari, Advanced, Website Data, search the portal name, swipe to delete.',
+    'If one account fails everywhere, ask the supplier to check that account.'], true]
+};
+function guideBlock(parent, key){
+  const g = GUIDES[key]; if (!g) return;
+  const d = document.createElement('details');
+  const s = document.createElement('summary'); s.textContent = 'How to fix: ' + g[0]; d.appendChild(s);
+  const ol = document.createElement('ol');
+  g[1].forEach(function(t){ const li = document.createElement('li'); li.textContent = t; ol.appendChild(li); });
+  d.appendChild(ol);
+  if (g[2]){ const c = document.createElement('div'); c.className = 'chrome'; c.textContent = CHROME_NOTE; d.appendChild(c); }
+  parent.appendChild(d);
+  report.push('FIX GUIDE: ' + g[0] + ' - ' + g[1].map(function(t, i){ return (i + 1) + ') ' + t; }).join(' '));
+}
+function renderVerdicts(vc, verdicts){
+  verdicts.forEach(function(v){
+    const d = document.createElement('div'); d.className = 'v ' + v[0];
+    const s = document.createElement('span'); s.textContent = v[1]; d.appendChild(s);
+    if (v[2]) guideBlock(d, v[2]);
+    vc.appendChild(d);
+    report.push('VERDICT: ' + v[1]);
+  });
+}
+function nextSteps(){
+  const c = card('What to do next');
+  const p = document.createElement('p');
+  p.textContent = 'Whatever the result above, these steps narrow it down further. If it is still failing, send the supplier the screenshot, the exact time of the error, the web address and the report below.';
+  c.appendChild(p);
+  guideBlock(c, 'next');
+  guideBlock(c, 'network');
+}
 
 async function probe(url, ms){
   ms = ms || 10000;
@@ -204,7 +284,7 @@ async function run(){
     const diff = Math.round((Date.now() - server) / 1000);
     const bad = Math.abs(diff) > 300;
     row(dev, 'Clock accuracy', bad ? 'fail' : 'ok', 'Phone clock is ' + (diff >= 0 ? diff + 's ahead' : (-diff) + 's behind') + ' of a reference clock');
-    if (bad) verdicts.push(['fail', 'The phone clock is out by more than 5 minutes. HTTPS sites can fail with wrong time. Fix: Settings > General > Date & Time > Set Automatically.']);
+    if (bad) verdicts.push(['fail', 'The phone clock is out by more than 5 minutes. HTTPS sites can fail with wrong time. Fix: Settings > General > Date & Time > Set Automatically.', 'clock']);
   } else {
     row(dev, 'Clock accuracy', 'warn', 'Could not reach a reference clock (itself a sign of filtering)');
   }
@@ -256,7 +336,7 @@ async function run(){
   const bt = await bigTest();
   row(tc, 'Small file (about 2 KB)', bt.small.ok ? 'ok' : 'fail', bt.small.ok ? bt.small.bytes + ' bytes in ' + bt.small.ms + ' ms' : bt.small.err);
   row(tc, 'Large file (about 600 KB)', bt.big.ok ? 'ok' : 'fail', bt.big.ok ? bt.big.bytes + ' bytes in ' + bt.big.ms + ' ms' : bt.big.err + ' after ' + bt.big.ms + ' ms');
-  if (bt.small.ok && !bt.big.ok) verdicts.push(['fail', 'Small downloads work but large ones stall. That pattern usually means a packet-size (MTU) problem or a firewall dropping bigger packets on this network, which can also break some HTTPS handshakes.']);
+  if (bt.small.ok && !bt.big.ok) verdicts.push(['fail', 'Small downloads work but large ones stall. That pattern usually means a packet-size (MTU) problem or a firewall dropping bigger packets on this network, which can also break some HTTPS handshakes.', 'network']);
 
   // 5. Verdict
   const vc = card('5. What this suggests');
@@ -264,23 +344,20 @@ async function run(){
     verdicts.length = 0;
     verdicts.push(['fail', 'THESE RESULTS ARE NOT VALID. This page is running somewhere that blocks all outside network requests (for example the Claude app preview, Quick Look in Files, or an email viewer), so every test failed. Open the page from a normal web address in Safari (https://...), or from inside the Documents by Readdle app, then run it again.']);
   } else if (stat.ctrlOk === 0){
-    verdicts.push(['fail', 'Even the control sites failed. This is a general connection problem on the network the phone is using, not specific to gov.uk or the CRM. Try the other connection (Wi-Fi vs mobile data).']);
+    verdicts.push(['fail', 'Even the control sites failed. This is a general connection problem on the network the phone is using, not specific to gov.uk or the CRM. Try the other connection (Wi-Fi vs mobile data).', 'network']);
   } else if (stat.probFail > 0){
     if (stat.fast > 0 && stat.slow === 0)
-      verdicts.push(['fail', 'Normal sites work, but the problem sites fail instantly, even though their addresses look fine on Cloudflare/Google DNS. Something on this connection is refusing or resetting these specific sites: a DNS or web filter (router, ISP or carrier), a security app or profile on the phone, or TLS interference. Test on the other connection to tell which.']);
+      verdicts.push(['fail', 'Normal sites work, but the problem sites fail instantly, even though their addresses look fine on Cloudflare/Google DNS. Something on this connection is refusing or resetting these specific sites: a DNS or web filter (router, ISP or carrier), a security app or profile on the phone, or TLS interference. Test on the other connection to tell which.', 'blockers']);
     else if (stat.slow > 0 && stat.fast === 0)
-      verdicts.push(['fail', 'Normal sites work, but the problem sites hang until timeout. Packets to those servers are being dropped: usually an IPv6 routing issue, an MTU problem, or a firewall. Try turning IPv6 off for the Wi-Fi (router setting) or test on mobile data.']);
+      verdicts.push(['fail', 'Normal sites work, but the problem sites hang until timeout. Packets to those servers are being dropped: usually an IPv6 routing issue, an MTU problem, or a firewall. Try turning IPv6 off for the Wi-Fi (router setting) or test on mobile data.', 'network']);
     else
-      verdicts.push(['fail', 'Normal sites work but the problem sites fail in a mix of ways (instant and hanging). Look at the DNS lines above: if the addresses differ from what other devices see, DNS filtering is likely.']);
+      verdicts.push(['fail', 'Normal sites work but the problem sites fail in a mix of ways (instant and hanging). Look at the DNS lines above: if the addresses differ from what other devices see, DNS filtering is likely.', 'network']);
     verdicts.push(['warn', 'Both Safari and Chrome on iPhone use the same Apple networking engine, so a fault shared by both points at the phone\'s network path, settings or the network itself, not the browser.']);
   } else {
-    verdicts.push(['ok', 'Every site connected from this page. The basic network path is working on this connection. If gov.uk or the CRM still fail in Safari, compare the exact error message (tap the links below), and test the other connection (Wi-Fi vs mobile data).']);
+    verdicts.push(['ok', 'Every site connected from this page. The basic network path is working on this connection. If gov.uk or the CRM still fail in Safari, compare the exact error message (tap the links below), and test the other connection (Wi-Fi vs mobile data).', 'next']);
   }
-  verdicts.forEach(v => {
-    const d = document.createElement('div'); d.className = 'v ' + v[0];
-    const s = document.createElement('span'); s.textContent = v[1]; d.appendChild(s); vc.appendChild(d);
-    report.push('VERDICT: ' + v[1]);
-  });
+  renderVerdicts(vc, verdicts);
+  nextSteps();
 
   $('rep').value = report.join('\n');
   $('repcard').style.display = '';
@@ -288,6 +365,101 @@ async function run(){
   btn.disabled = false;
   vc.scrollIntoView({behavior:'smooth', block:'start'});
 }
+
+function loadScript(src, ms){
+  return new Promise(function(res){
+    const s = document.createElement('script'); let done = false;
+    const fin = function(v){ if (done) return; done = true; clearTimeout(t); try{ s.remove(); }catch(e){} res(v); };
+    const t = setTimeout(function(){ fin('timeout'); }, ms || 6000);
+    s.onload = function(){ fin('loaded'); };
+    s.onerror = function(){ fin('blocked'); };
+    s.async = true; s.src = src + (src.indexOf('?') > -1 ? '&' : '?') + '_=' + Date.now();
+    document.head.appendChild(s);
+  });
+}
+function canvasData(){
+  const c = document.createElement('canvas'); c.width = 220; c.height = 40;
+  const x = c.getContext('2d'); x.textBaseline = 'top'; x.font = '16px Arial';
+  x.fillStyle = '#f60'; x.fillRect(10, 5, 80, 20); x.fillStyle = '#069'; x.fillText('Cwm fjord bank glyphs', 4, 12);
+  return c.toDataURL();
+}
+
+async function quick(){
+  const qbtn = $('qgo'); qbtn.disabled = true; out.innerHTML = ''; report = [];
+  $('repcard').style.display = 'none';
+  report.push('BROWSER CHECK ' + new Date().toISOString());
+  report.push('UA: ' + navigator.userAgent);
+  report.push('');
+  const verdicts = [];
+  say('Checking cookies and storage...');
+
+  const c1 = card('1. Cookies and storage');
+  row(c1, 'JavaScript', 'ok', 'Running (this page needs it)');
+  let ck = false;
+  try{
+    document.cookie = 'cc_test=1; path=/; SameSite=Lax';
+    ck = document.cookie.indexOf('cc_test=1') > -1;
+    document.cookie = 'cc_test=; path=/; max-age=0';
+  }catch(e){}
+  const ckOk = navigator.cookieEnabled && ck;
+  row(c1, 'Cookies', ckOk ? 'ok' : 'fail', ckOk ? 'Can set and read a cookie' : 'Cookie could not be saved (Block All Cookies may be on)');
+  if (!ckOk) verdicts.push(['fail', 'Cookies are being blocked. Logins usually break when this happens. Fix: Settings > Apps > Safari > turn off Block All Cookies (in Chrome: Settings > Privacy).', 'cookies']);
+
+  let ls = false; try{ localStorage.setItem('cc_t', '1'); ls = localStorage.getItem('cc_t') === '1'; localStorage.removeItem('cc_t'); }catch(e){}
+  row(c1, 'Local storage', ls ? 'ok' : 'fail', ls ? 'Works' : 'Blocked');
+  let ss = false; try{ sessionStorage.setItem('cc_t', '1'); ss = sessionStorage.getItem('cc_t') === '1'; sessionStorage.removeItem('cc_t'); }catch(e){}
+  row(c1, 'Session storage', ss ? 'ok' : 'fail', ss ? 'Works' : 'Blocked');
+  const idb = await new Promise(function(res){
+    try{
+      const r = indexedDB.open('cc_test');
+      r.onsuccess = function(){ r.result.close(); indexedDB.deleteDatabase('cc_test'); res(true); };
+      r.onerror = function(){ res(false); };
+      setTimeout(function(){ res(false); }, 4000);
+    }catch(e){ res(false); }
+  });
+  row(c1, 'IndexedDB (used by many web apps)', idb ? 'ok' : 'fail', idb ? 'Works' : 'Blocked or failing');
+  if (!ls || !ss || !idb) verdicts.push(['fail', 'Browser storage is blocked or failing. Web apps and portals often show "unexpected error" when this happens. Check Private Browsing is off, and Safari storage/tracking settings.', 'storage']);
+
+  say('Checking for content blockers...');
+  const c2 = card('2. Content blockers and filters');
+  const ctl = await loadScript('https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js', 8000);
+  row(c2, 'Control script (cdnjs)', ctl === 'loaded' ? 'ok' : 'warn', ctl === 'loaded' ? 'Loads normally' : 'Did not load. Blocker results below may be unreliable');
+  const bait = [
+    ['Google ads script', 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js'],
+    ['Google Analytics script', 'https://www.google-analytics.com/analytics.js'],
+    ['Facebook tracker script', 'https://connect.facebook.net/en_US/fbevents.js']
+  ];
+  let blocked = 0;
+  for (let i = 0; i < bait.length; i++){
+    const r = await loadScript(bait[i][1], 6000);
+    if (r === 'blocked') blocked++;
+    row(c2, bait[i][0], r === 'loaded' ? 'ok' : (r === 'blocked' ? 'warn' : 'info'), r === 'loaded' ? 'Loads normally' : (r === 'blocked' ? 'Blocked (content blocker, security app or network ad/DNS filter)' : 'No response in 6s'));
+  }
+  const b = document.createElement('div'); b.className = 'adsbox ad-banner pub_300x250 textAd'; b.style.cssText = 'position:absolute;left:-9999px;height:10px;width:10px';
+  document.body.appendChild(b); await sleep(120);
+  const hidden = b.offsetHeight === 0 || getComputedStyle(b).display === 'none';
+  b.remove();
+  row(c2, 'Ad-element hiding', hidden ? 'warn' : 'ok', hidden ? 'An ad blocker is hiding page elements' : 'Nothing hidden');
+  if (blocked > 0 || hidden) verdicts.push(['warn', 'Something is blocking ad or tracking content: a Safari content blocker/extension, a security or VPN-style app, or an ad filter on the Wi-Fi or router. Portals that load tracking or help-widget scripts can break when these are blocked. Switch off Safari content blockers/extensions (Settings > Apps > Safari > Extensions) and retest, and also test on mobile data.', 'blockers']);
+
+  say('Checking tracking protection...');
+  const c3 = card('3. Tracking and fingerprinting protection');
+  let noisy = false; try{ noisy = canvasData() !== canvasData(); }catch(e){}
+  row(c3, 'Canvas fingerprint noise', noisy ? 'warn' : 'ok', noisy ? 'Browser is altering canvas data, so fingerprinting protection looks active' : 'No alteration detected');
+  if (noisy) verdicts.push(['warn', 'Advanced Tracking and Fingerprinting Protection appears to be on. Try turning it off: Settings > Apps > Safari > Advanced > Advanced Tracking and Fingerprinting Protection > Off.', 'fingerprint']);
+  row(c3, 'Cross-site tracking prevention', 'info', 'Cannot be tested from a web page. Check Settings > Apps > Safari: Prevent Cross-Site Tracking off, Block All Cookies off.');
+
+  const c4 = card('4. What this suggests');
+  if (!verdicts.length) verdicts.push(['ok', 'Cookies, storage and blockers all look normal in this browser. The fault is then more likely in the account, the site\'s own servers, or cross-site tracking settings. Try logging in with a different account, try mobile data, and send the portal supplier the exact time of the error.', 'next']);
+  renderVerdicts(c4, verdicts);
+  nextSteps();
+  $('rep').value = report.join('\n');
+  $('repcard').style.display = '';
+  say('Done.');
+  qbtn.disabled = false;
+  c4.scrollIntoView({behavior:'smooth', block:'start'});
+}
+$('qgo').addEventListener('click', quick);
 
 btn.addEventListener('click', run);
 $('copy').addEventListener('click', function(){
