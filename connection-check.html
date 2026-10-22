@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Connection Check</title>
+<style>
+:root{color-scheme:light dark;--bg:#f4f5f7;--card:#fff;--tx:#14171a;--mut:#5b6670;--bd:#dde1e6;--ok:#117a3d;--warn:#a15c00;--bad:#b3261e;--acc:#0b57d0;--accfg:#fff}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1216;--card:#181c21;--tx:#eceff2;--mut:#98a2ad;--bd:#2a3037;--ok:#4cd07d;--warn:#f0b450;--bad:#ff8a80;--acc:#8ab4ff;--accfg:#0b1220}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding:max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom))}
+main{max-width:640px;margin:0 auto}
+h1{font-size:1.5rem;margin:.2rem 0 .3rem}
+h2{font-size:1.05rem;margin:0 0 .6rem}
+p{margin:.3rem 0 .8rem;color:var(--mut)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin:12px 0}
+label{display:block;font-size:.85rem;color:var(--mut);margin:.5rem 0 .2rem}
+input,select{width:100%;font-size:16px;padding:11px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
+button{font-size:1rem;font-weight:600;padding:13px 16px;border-radius:12px;border:0;background:var(--acc);color:var(--accfg);width:100%;margin-top:.8rem}
+button.sec{background:transparent;color:var(--acc);border:1px solid var(--bd)}
+button:disabled{opacity:.5}
+.row{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--bd)}
+.row:first-of-type{border-top:0}
+.pill{flex:none;font-size:.7rem;font-weight:700;letter-spacing:.03em;padding:3px 7px;border-radius:99px;border:1px solid currentColor;margin-top:2px;min-width:48px;text-align:center}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.fail{color:var(--bad)}.info{color:var(--mut)}
+.txt{min-width:0;word-break:break-word}
+.txt small{display:block;color:var(--mut);font-size:.85rem}
+#prog{color:var(--mut);font-size:.9rem;min-height:1.3em;margin-top:.6rem}
+textarea{width:100%;height:180px;font:12px/1.4 ui-monospace,Menlo,monospace;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:8px}
+ul{padding-left:1.1rem;margin:.3rem 0}
+li{margin:.35rem 0}
+a{color:var(--acc)}
+.v{padding:9px 11px;border-radius:10px;margin:7px 0;border:1px solid currentColor;background:transparent}
+.v span{color:var(--tx)}
+</style>
+</head>
+<body>
+<main>
+<h1>Connection Check</h1>
+<p>Tests what is happening between this iPhone and the sites that will not load, and compares them with sites that do. Takes about 30 seconds.</p>
+
+<div class="card">
+  <label for="crm">Company CRM address (the site that gives the error)</label>
+  <input id="crm" type="url" inputmode="url" autocapitalize="off" autocorrect="off" placeholder="e.g. serchem.crm-provider.com">
+  <label for="net">What is the phone connected to right now?</label>
+  <select id="net">
+    <option>Wi-Fi</option>
+    <option>Mobile data (Wi-Fi off)</option>
+    <option>Other</option>
+  </select>
+  <label for="who">Network name (Wi-Fi name or carrier), optional</label>
+  <input id="who" type="text" autocapitalize="off" autocorrect="off" placeholder="e.g. Office Wi-Fi / EE">
+  <button id="go">Run checks</button>
+  <div id="prog"></div>
+</div>
+
+<div id="out"></div>
+
+<div class="card" id="repcard" style="display:none">
+  <h2>Report</h2>
+  <p>Run it once on Wi-Fi and once on mobile data (Wi-Fi switched off), then send both reports to Dan.</p>
+  <textarea id="rep" readonly></textarea>
+  <button id="copy">Copy report</button>
+  <button id="share" class="sec" style="display:none">Share report</button>
+</div>
+
+<div class="card">
+  <h2>Now try the real thing</h2>
+  <p>Tap these and note the exact wording of the error Safari shows. It points at the cause:</p>
+  <ul>
+    <li><a href="https://www.gov.uk" target="_blank" rel="noopener">www.gov.uk</a></li>
+    <li id="crmlink" style="display:none"><a id="crma" href="#" target="_blank" rel="noopener">CRM site</a></li>
+  </ul>
+  <ul>
+    <li><b>"Server unexpectedly dropped the connection"</b> – something on the network is cutting the connection (firewall, filter, router, or carrier).</li>
+    <li><b>"A TLS error caused the secure connection to fail"</b> – HTTPS is being interfered with, or the phone's clock is wrong.</li>
+    <li><b>"Server cannot be found" / "cannot find the server"</b> – DNS problem.</li>
+    <li><b>"Request timed out"</b> – packets being dropped (IPv6 route, MTU, or firewall).</li>
+    <li><b>"Blocked" / "Restricted"</b> – a content filter or Screen Time.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>Settings worth checking on the phone</h2>
+  <ul>
+    <li>Settings &gt; General &gt; VPN &amp; Device Management: any profile listed (remove or note it).</li>
+    <li>Settings &gt; Screen Time &gt; Content &amp; Privacy Restrictions &gt; Web Content.</li>
+    <li>Settings &gt; Wi-Fi &gt; (i) next to the network: Limit IP Address Tracking off, Private Wi-Fi Address off, Configure DNS = Automatic.</li>
+    <li>Settings &gt; Apps &gt; Safari &gt; Advanced: Advanced Tracking and Fingerprinting Protection set to Off, and Experimental Features reset to defaults.</li>
+    <li>Settings &gt; Privacy &amp; Security: Lockdown Mode off.</li>
+    <li>Settings &gt; General &gt; Date &amp; Time: Set Automatically on.</li>
+    <li>Settings &gt; Mobile Service: turn Wi-Fi Assist off while testing.</li>
+    <li>Settings &gt; General &gt; Transfer or Reset &gt; Reset &gt; Reset Network Settings.</li>
+  </ul>
+</div>
+</main>
+
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+const out = $('out'), prog = $('prog'), btn = $('go');
+let report = [];
+let cspHit = false;
+document.addEventListener('securitypolicyviolation', function(){ cspHit = true; });
+
+function card(title){
+  const d = document.createElement('section'); d.className = 'card';
+  const h = document.createElement('h2'); h.textContent = title; d.appendChild(h);
+  out.appendChild(d); return d;
+}
+function row(parent, label, status, detail){
+  const r = document.createElement('div'); r.className = 'row';
+  const p = document.createElement('span'); p.className = 'pill ' + status; p.textContent = status.toUpperCase();
+  const t = document.createElement('div'); t.className = 'txt';
+  const b = document.createElement('b'); b.textContent = label; t.appendChild(b);
+  if (detail){ const s = document.createElement('small'); s.textContent = detail; t.appendChild(s); }
+  r.appendChild(p); r.appendChild(t); parent.appendChild(r);
+  report.push('[' + status.toUpperCase() + '] ' + label + (detail ? ' - ' + detail : ''));
+}
+function say(t){ prog.textContent = t; }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function probe(url, ms){
+  ms = ms || 10000;
+  const c = new AbortController(); const t = setTimeout(() => c.abort(), ms); const s = performance.now();
+  try{
+    await fetch(url + (url.indexOf('?') > -1 ? '&' : '?') + '_=' + Date.now(), {mode:'no-cors', cache:'no-store', credentials:'omit', signal:c.signal});
+    clearTimeout(t); return {ok:true, ms:Math.round(performance.now() - s)};
+  }catch(e){
+    clearTimeout(t);
+    const to = e && e.name === 'AbortError';
+    return {ok:false, timeout:to, ms:Math.round(performance.now() - s), err: to ? 'timed out after ' + (ms/1000) + 's' : (e && e.message ? e.message : String(e))};
+  }
+}
+async function getJSON(url, headers, ms){
+  const c = new AbortController(); const t = setTimeout(() => c.abort(), ms || 8000);
+  try{
+    const r = await fetch(url, {headers:headers || {}, cache:'no-store', credentials:'omit', signal:c.signal});
+    clearTimeout(t); return await r.json();
+  }catch(e){ clearTimeout(t); return null; }
+}
+async function doh(host, type, server){
+  const u = server === 'cf'
+    ? 'https://cloudflare-dns.com/dns-query?name=' + encodeURIComponent(host) + '&type=' + type
+    : 'https://dns.google/resolve?name=' + encodeURIComponent(host) + '&type=' + type;
+  const j = await getJSON(u, {accept:'application/dns-json'});
+  if (!j) return null;
+  const want = type === 'A' ? 1 : 28;
+  return (j.Answer || []).filter(a => a.type === want).map(a => a.data);
+}
+
+async function timeCheck(){
+  let j = await getJSON('https://worldtimeapi.org/api/timezone/Etc/UTC');
+  let server = j && j.unixtime ? j.unixtime * 1000 : null;
+  if (!server){
+    j = await getJSON('https://timeapi.io/api/time/current/zone?timeZone=UTC');
+    if (j && j.dateTime) server = Date.parse(j.dateTime + 'Z');
+  }
+  return server;
+}
+
+async function bigTest(){
+  const base = 'https://cdnjs.cloudflare.com/ajax/libs/';
+  async function dl(path, ms){
+    const c = new AbortController(); const t = setTimeout(() => c.abort(), ms); const s = performance.now();
+    try{
+      const r = await fetch(base + path + '?_=' + Date.now(), {cache:'no-store', credentials:'omit', signal:c.signal});
+      const rd = r.body.getReader(); let n = 0;
+      for(;;){ const x = await rd.read(); if (x.done) break; n += x.value.length; }
+      clearTimeout(t); return {ok:true, bytes:n, ms:Math.round(performance.now() - s)};
+    }catch(e){ clearTimeout(t); return {ok:false, ms:Math.round(performance.now() - s), err:(e && e.name === 'AbortError') ? 'stalled / timed out' : (e.message || String(e))}; }
+  }
+  const small = await dl('normalize/8.0.1/normalize.min.css', 10000);
+  const big = await dl('three.js/r128/three.min.js', 20000);
+  return {small, big};
+}
+
+async function run(){
+  btn.disabled = true; out.innerHTML = ''; report = [];
+  $('repcard').style.display = 'none';
+  const net = $('net').value, who = $('who').value.trim();
+  let crm = $('crm').value.trim(), crmHost = null;
+  if (crm){
+    try{ crmHost = new URL(/^https?:/i.test(crm) ? crm : 'https://' + crm).hostname; }catch(e){}
+  }
+  if (crmHost){ $('crmlink').style.display = ''; $('crma').href = 'https://' + crmHost; $('crma').textContent = crmHost; }
+
+  report.push('CONNECTION CHECK ' + new Date().toISOString());
+  report.push('Network: ' + net + (who ? ' (' + who + ')' : ''));
+  report.push('UA: ' + navigator.userAgent);
+  report.push('');
+
+  const verdicts = [];
+  const stat = {ctrlOk:0, ctrlFail:0, probOk:0, probFail:0, fast:0, slow:0};
+
+  // 1. Device
+  say('Checking device and clock...');
+  const dev = card('1. Phone and clock');
+  row(dev, 'Browser says online', navigator.onLine ? 'ok' : 'fail', navigator.onLine ? '' : 'Browser reports no connection');
+  row(dev, 'Time zone', 'info', (Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown') + ', local time ' + new Date().toLocaleString('en-GB'));
+  const server = await timeCheck();
+  if (server){
+    const diff = Math.round((Date.now() - server) / 1000);
+    const bad = Math.abs(diff) > 300;
+    row(dev, 'Clock accuracy', bad ? 'fail' : 'ok', 'Phone clock is ' + (diff >= 0 ? diff + 's ahead' : (-diff) + 's behind') + ' of a reference clock');
+    if (bad) verdicts.push(['fail', 'The phone clock is out by more than 5 minutes. HTTPS sites can fail with wrong time. Fix: Settings > General > Date & Time > Set Automatically.']);
+  } else {
+    row(dev, 'Clock accuracy', 'warn', 'Could not reach a reference clock (itself a sign of filtering)');
+  }
+
+  // 2. IP
+  say('Checking IPv4 / IPv6...');
+  const ipc = card('2. Internet address');
+  const v4 = await getJSON('https://api.ipify.org?format=json');
+  row(ipc, 'IPv4 address', v4 ? 'ok' : 'fail', v4 ? v4.ip : 'Could not fetch');
+  const v6 = await getJSON('https://api6.ipify.org?format=json');
+  row(ipc, 'IPv6 address', v6 ? 'ok' : 'info', v6 ? v6.ip : 'No IPv6 (normal on many networks)');
+  if (v4 && v6) report.push('(has both IPv4 and IPv6)');
+
+  // 3. Sites
+  const sites = [
+    ['www.apple.com', 'control'], ['www.google.com', 'control'], ['www.bbc.co.uk', 'control'],
+    ['www.gov.uk', 'problem'], ['www.nhs.uk', 'problem']
+  ];
+  if (crmHost) sites.push([crmHost, 'problem']);
+  const sc = card('3. Site by site');
+  const note = document.createElement('p');
+  note.textContent = 'CONNECT = can this phone open a secure connection. DNS = what the internet says the site\'s address is, asked via Cloudflare and Google (bypasses this network\'s DNS).';
+  sc.appendChild(note);
+  for (let i = 0; i < sites.length; i++){
+    const h = sites[i][0], role = sites[i][1];
+    say('Testing ' + h + ' (' + (i + 1) + ' of ' + sites.length + ')...');
+    const res = await Promise.all([probe('https://' + h + '/', 10000), doh(h, 'A', 'cf'), doh(h, 'AAAA', 'cf'), doh(h, 'A', 'g')]);
+    const p = res[0], a = res[1], aaaa = res[2], ga = res[3];
+    const head = document.createElement('div'); head.style.cssText = 'font-weight:700;margin:.7rem 0 .1rem'; head.textContent = h + (role === 'control' ? '  (control)' : '');
+    sc.appendChild(head); report.push('-- ' + h + ' (' + role + ')');
+    if (p.ok){
+      row(sc, 'CONNECT', 'ok', 'Secure connection works (' + p.ms + ' ms)');
+      stat[role === 'control' ? 'ctrlOk' : 'probOk']++;
+    } else {
+      row(sc, 'CONNECT', 'fail', p.err + ' after ' + p.ms + ' ms');
+      stat[role === 'control' ? 'ctrlFail' : 'probFail']++;
+      if (role === 'problem'){ if (p.timeout) stat.slow++; else stat.fast++; }
+    }
+    const ips = []; if (a) ips.push.apply(ips, a); if (ga) ips.push.apply(ips, ga);
+    const uniq = ips.filter((x, k) => ips.indexOf(x) === k);
+    if (a === null && ga === null) row(sc, 'DNS', 'warn', 'Could not reach Cloudflare or Google DNS to look this up');
+    else row(sc, 'DNS', uniq.length ? 'ok' : 'warn', uniq.length ? 'IPv4: ' + uniq.join(', ') + (aaaa && aaaa.length ? '  IPv6: ' + aaaa.slice(0, 2).join(', ') : '') : 'No address found');
+    await sleep(150);
+  }
+
+  // 4. Transfer test
+  say('Testing larger downloads...');
+  const tc = card('4. Small vs large download');
+  const bt = await bigTest();
+  row(tc, 'Small file (about 2 KB)', bt.small.ok ? 'ok' : 'fail', bt.small.ok ? bt.small.bytes + ' bytes in ' + bt.small.ms + ' ms' : bt.small.err);
+  row(tc, 'Large file (about 600 KB)', bt.big.ok ? 'ok' : 'fail', bt.big.ok ? bt.big.bytes + ' bytes in ' + bt.big.ms + ' ms' : bt.big.err + ' after ' + bt.big.ms + ' ms');
+  if (bt.small.ok && !bt.big.ok) verdicts.push(['fail', 'Small downloads work but large ones stall. That pattern usually means a packet-size (MTU) problem or a firewall dropping bigger packets on this network, which can also break some HTTPS handshakes.']);
+
+  // 5. Verdict
+  const vc = card('5. What this suggests');
+  if (cspHit || (stat.ctrlOk === 0 && stat.probOk === 0 && !v4 && !server)){
+    verdicts.length = 0;
+    verdicts.push(['fail', 'THESE RESULTS ARE NOT VALID. This page is running somewhere that blocks all outside network requests (for example the Claude app preview, Quick Look in Files, or an email viewer), so every test failed. Open the page from a normal web address in Safari (https://...), or from inside the Documents by Readdle app, then run it again.']);
+  } else if (stat.ctrlOk === 0){
+    verdicts.push(['fail', 'Even the control sites failed. This is a general connection problem on the network the phone is using, not specific to gov.uk or the CRM. Try the other connection (Wi-Fi vs mobile data).']);
+  } else if (stat.probFail > 0){
+    if (stat.fast > 0 && stat.slow === 0)
+      verdicts.push(['fail', 'Normal sites work, but the problem sites fail instantly, even though their addresses look fine on Cloudflare/Google DNS. Something on this connection is refusing or resetting these specific sites: a DNS or web filter (router, ISP or carrier), a security app or profile on the phone, or TLS interference. Test on the other connection to tell which.']);
+    else if (stat.slow > 0 && stat.fast === 0)
+      verdicts.push(['fail', 'Normal sites work, but the problem sites hang until timeout. Packets to those servers are being dropped: usually an IPv6 routing issue, an MTU problem, or a firewall. Try turning IPv6 off for the Wi-Fi (router setting) or test on mobile data.']);
+    else
+      verdicts.push(['fail', 'Normal sites work but the problem sites fail in a mix of ways (instant and hanging). Look at the DNS lines above: if the addresses differ from what other devices see, DNS filtering is likely.']);
+    verdicts.push(['warn', 'Both Safari and Chrome on iPhone use the same Apple networking engine, so a fault shared by both points at the phone\'s network path, settings or the network itself, not the browser.']);
+  } else {
+    verdicts.push(['ok', 'Every site connected from this page. The basic network path is working on this connection. If gov.uk or the CRM still fail in Safari, compare the exact error message (tap the links below), and test the other connection (Wi-Fi vs mobile data).']);
+  }
+  verdicts.forEach(v => {
+    const d = document.createElement('div'); d.className = 'v ' + v[0];
+    const s = document.createElement('span'); s.textContent = v[1]; d.appendChild(s); vc.appendChild(d);
+    report.push('VERDICT: ' + v[1]);
+  });
+
+  $('rep').value = report.join('\n');
+  $('repcard').style.display = '';
+  say('Done. Scroll down for the report.');
+  btn.disabled = false;
+  vc.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+btn.addEventListener('click', run);
+$('copy').addEventListener('click', function(){
+  const ta = $('rep'); ta.select(); ta.setSelectionRange(0, 99999);
+  let ok = false;
+  try{ ok = document.execCommand('copy'); }catch(e){}
+  if (!ok && navigator.clipboard){ navigator.clipboard.writeText(ta.value).then(()=>{ this.textContent = 'Copied'; }); }
+  else this.textContent = ok ? 'Copied' : 'Press and hold the text to copy';
+});
+if (navigator.share){
+  const sb = $('share'); sb.style.display = '';
+  sb.addEventListener('click', () => navigator.share({title:'Connection check report', text:$('rep').value}).catch(()=>{}));
+}
+})();
+</script>
+</body>
+</html>
